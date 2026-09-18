@@ -884,7 +884,12 @@ func modelRoutingAppliesToPlatform(targetPlatform, groupPlatform string) bool {
 // modelRoutingAppliesToTargetPlatform 是放行平台集合的唯一定义处：新增平台只改这里。
 // 在只知道目标平台、还没取到分组的位置（调试日志、取分组前的短路）单独判定用。
 func modelRoutingAppliesToTargetPlatform(targetPlatform string) bool {
-	return isConcreteRequestPlatform(targetPlatform)
+	switch targetPlatform {
+	case PlatformAnthropic, PlatformOpenAI:
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *GatewayService) routingAccountIDsForRequest(ctx context.Context, groupID *int64, requestedModel string, platform string) []int64 {

@@ -404,9 +404,9 @@ func (s *UpdateService) fetchLatestRelease(ctx context.Context) (*UpdateInfo, er
 	}
 
 	return &UpdateInfo{
-		CurrentVersion:  s.currentVersion,
-		LatestVersion:   latestVersion,
-		HasUpdate:       compareVersions(s.currentVersion, latestVersion) < 0,
+		CurrentVersion: s.currentVersion,
+		LatestVersion:  latestVersion,
+		HasUpdate:      compareVersions(s.currentVersion, latestVersion) < 0,
 		ReleaseInfo: &ReleaseInfo{
 			Name:        release.Name,
 			Body:        release.Body,
@@ -460,7 +460,6 @@ func (s *UpdateService) fetchRollbackCandidates(ctx context.Context) ([]*GitHubR
 	}
 	return candidates, nil
 }
-
 
 func (s *UpdateService) downloadFile(ctx context.Context, downloadURL, dest string) error {
 	return s.githubClient.DownloadFile(ctx, downloadURL, dest, maxDownloadSize)
