@@ -780,8 +780,6 @@ const buildType = computed(() => appStore.buildType)
 const isCustomFork = computed(
   () => appStore.isCustomFork || buildType.value === 'custom' || currentVersion.value.includes('custom')
 )
-const upstreamRepo = computed(() => appStore.upstreamRepo || GITHUB_REPO)
-const upstreamVersion = computed(() => appStore.upstreamVersion || latestVersion.value)
 
 const syncCommandText = 'git fetch upstream && git merge upstream/main && git push origin custom'
 
