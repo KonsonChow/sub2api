@@ -56,7 +56,15 @@ export default {
     deployScript: 'Script',
     deployDocker: 'Docker',
     dockerEditCompose: 'Edit the image tag in docker-compose.yml',
-    dockerRecreate: 'Recreate the container'
+    dockerRecreate: 'Recreate the container',
+    customFork: 'Custom Fork',
+    upstreamVersion: 'Official Upstream Version',
+    upstreamLatest: 'Upstream Latest',
+    customForkHint: 'You are running a self-maintained custom fork build.',
+    customForkUpdateHint: 'Official upstream updates are available. For a custom fork, please merge upstream changes in git and rebuild your Docker image. Do not overwrite the running binary.',
+    syncUpstreamGuide: 'To sync: merge upstream changes into custom branch and push to trigger GitHub Actions image build.',
+    syncCommand: 'Sync Command',
+    rollbackCustomForkHint: 'Online rollback is not available for custom fork builds. Please deploy a specific image tag via git.'
   },
 
   // Recharge / Subscription Page

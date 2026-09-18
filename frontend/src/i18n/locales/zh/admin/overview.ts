@@ -1222,14 +1222,14 @@ export default {
       modelRouting: {
         title: '模型路由配置',
         tooltip:
-          '配置特定模型请求优先路由到指定账号。支持通配符匹配，如 claude-opus-* 匹配所有 opus 模型。',
+          '配置特定模型请求优先路由到指定账号。支持通配符匹配，如 claude-opus-*, gpt-4o*, sol* 等。',
         enabled: '已启用',
         disabled: '已禁用',
         disabledHint: '启用后，配置的路由规则才会生效',
         addRule: '添加路由规则',
         modelPattern: '模型模式',
-        modelPatternPlaceholder: 'claude-opus-*',
-        modelPatternHint: '支持 * 通配符，如 claude-opus-* 匹配所有 opus 模型',
+        modelPatternPlaceholder: '例如: claude-opus-* 或 gpt-4o*, sol*',
+        modelPatternHint: '支持 * 通配符，如 claude-*, gpt-4o*, sol* 匹配对应模型',
         accounts: '优先账号',
         selectAccounts: '选择账号',
         noAccounts: '此分组暂无账号',

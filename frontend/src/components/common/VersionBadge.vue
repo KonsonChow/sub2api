@@ -12,7 +12,15 @@
         ]"
         :title="hasUpdate ? t('version.updateAvailable') : t('version.upToDate')"
       >
-        <span v-if="currentVersion" class="font-medium">v{{ currentVersion }}</span>
+        <span v-if="currentVersion" class="font-medium inline-flex items-center gap-1">
+          <span>v{{ currentVersion }}</span>
+          <span
+            v-if="isCustomFork"
+            class="rounded bg-blue-100 px-1 py-0.5 text-[10px] font-normal text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+          >
+            {{ t('version.customFork') }}
+          </span>
+        </span>
         <span
           v-else
           class="h-3 w-12 animate-pulse rounded bg-gray-200 font-medium dark:bg-dark-600"
@@ -105,11 +113,20 @@
                     </svg>
                   </span>
                 </div>
+                <div v-if="isCustomFork" class="mt-1">
+                  <span
+                    class="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-[11px] font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                  >
+                    {{ t('version.customFork') }}
+                  </span>
+                </div>
                 <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">
                   {{
                     hasUpdate
-                      ? t('version.latestVersion') + ': v' + latestVersion
-                      : t('version.upToDate')
+                      ? t('version.upstreamLatest') + ': v' + latestVersion
+                      : (isCustomFork
+                          ? t('version.upToDate') + ' (' + t('version.upstreamLatest') + ': v' + (latestVersion || currentVersion) + ')'
+                          : t('version.upToDate'))
                   }}
                 </p>
               </div>
@@ -231,7 +248,85 @@
                 </button>
               </div>
 
-              <!-- Priority 3: Update available for source build - show git pull hint -->
+              <!-- Priority 3: Update available for custom fork build -->
+              <div v-else-if="hasUpdate && isCustomFork" class="space-y-2.5">
+                <a
+                  v-if="releaseInfo?.html_url && releaseInfo.html_url !== '#'"
+                  :href="releaseInfo.html_url"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="group flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 transition-colors hover:bg-amber-100 dark:border-amber-800/50 dark:bg-amber-900/20 dark:hover:bg-amber-900/30"
+                >
+                  <div
+                    class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/50"
+                  >
+                    <Icon
+                      name="download"
+                      size="sm"
+                      :stroke-width="2"
+                      class="text-amber-600 dark:text-amber-400"
+                    />
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <p class="text-sm font-medium text-amber-700 dark:text-amber-300">
+                      {{ t('version.updateAvailable') }}
+                    </p>
+                    <p class="text-xs text-amber-600/70 dark:text-amber-400/70">
+                      {{ t('version.upstreamLatest') }}: v{{ latestVersion }}
+                    </p>
+                  </div>
+                  <svg
+                    class="h-4 w-4 text-amber-500 transition-transform group-hover:translate-x-0.5 dark:text-amber-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </a>
+
+                <!-- Custom fork warning / guide -->
+                <div
+                  class="rounded-lg border border-amber-200 bg-amber-50/60 p-2.5 dark:border-amber-800/50 dark:bg-amber-900/20"
+                >
+                  <p class="text-xs leading-relaxed text-amber-700 dark:text-amber-300">
+                    {{ t('version.customForkUpdateHint') }}
+                  </p>
+                </div>
+
+                <!-- Sync command box with copy button -->
+                <div class="overflow-hidden rounded-lg border border-gray-200 dark:border-dark-600">
+                  <div
+                    class="flex items-center justify-between border-b border-gray-200 bg-gray-100 px-2 py-1.5 dark:border-dark-600 dark:bg-dark-700"
+                  >
+                    <span class="text-[11px] font-medium text-gray-600 dark:text-dark-300">
+                      {{ t('version.syncCommand') }}
+                    </span>
+                    <button
+                      @click="copyToClipboard(syncCommandText)"
+                      class="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-600 dark:text-dark-400 dark:hover:bg-dark-600 dark:hover:text-dark-200"
+                    >
+                      <Icon
+                        :name="copied ? 'check' : 'copy'"
+                        size="xs"
+                        :stroke-width="2"
+                        :class="copied ? 'text-green-500' : ''"
+                      />
+                      {{ copied ? t('version.copied') : t('version.copyCommand') }}
+                    </button>
+                  </div>
+                  <code
+                    class="block select-all whitespace-pre-wrap break-all bg-gray-50 p-2 font-mono text-[10px] leading-relaxed text-gray-600 dark:bg-dark-900 dark:text-dark-300"
+                  >{{ syncCommandText }}</code>
+                </div>
+
+                <p class="text-[11px] leading-tight text-gray-400 dark:text-dark-500">
+                  {{ t('version.syncUpstreamGuide') }}
+                </p>
+              </div>
+
+              <!-- Priority 4: Update available for source build - show git pull hint -->
               <div v-else-if="hasUpdate && !isReleaseBuild" class="space-y-2">
                 <a
                   v-if="releaseInfo?.html_url && releaseInfo.html_url !== '#'"
@@ -395,9 +490,9 @@
 
                   <transition name="rollback">
                     <div v-if="rollbackPanelOpen" class="mt-2 space-y-2">
-                      <!-- Source build: online rollback unavailable, use git instead -->
+                      <!-- Source build or custom fork: online rollback unavailable, use git instead -->
                       <div
-                        v-if="!isReleaseBuild"
+                        v-if="!isReleaseBuild || isCustomFork"
                         class="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-2 dark:border-blue-800/50 dark:bg-blue-900/20"
                       >
                         <svg
@@ -414,7 +509,7 @@
                           />
                         </svg>
                         <p class="min-w-0 flex-1 text-xs leading-4 text-blue-600 dark:text-blue-400">
-                          {{ t('version.rollbackSourceHint') }}
+                          {{ isCustomFork ? t('version.rollbackCustomForkHint') : t('version.rollbackSourceHint') }}
                         </p>
                       </div>
 
@@ -631,8 +726,14 @@
     </template>
 
     <!-- Non-admin: Simple static version text -->
-    <span v-else-if="version" class="text-xs text-gray-500 dark:text-dark-400">
-      v{{ version }}
+    <span v-else-if="version" class="text-xs text-gray-500 dark:text-dark-400 inline-flex items-center gap-1">
+      <span>v{{ version }}</span>
+      <span
+        v-if="isCustomFork"
+        class="rounded bg-blue-100 px-1 py-0.5 text-[10px] text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+      >
+        {{ t('version.customFork') }}
+      </span>
     </span>
   </div>
 </template>
@@ -676,6 +777,13 @@ const latestVersion = computed(() => appStore.latestVersion)
 const hasUpdate = computed(() => appStore.hasUpdate)
 const releaseInfo = computed(() => appStore.releaseInfo)
 const buildType = computed(() => appStore.buildType)
+const isCustomFork = computed(
+  () => appStore.isCustomFork || buildType.value === 'custom' || currentVersion.value.includes('custom')
+)
+const upstreamRepo = computed(() => appStore.upstreamRepo || GITHUB_REPO)
+const upstreamVersion = computed(() => appStore.upstreamVersion || latestVersion.value)
+
+const syncCommandText = 'git fetch upstream && git merge upstream/main && git push origin custom'
 
 // Update process states (local to this component)
 const updating = ref(false)
@@ -729,7 +837,7 @@ const activeManualCommand = computed(() =>
 )
 
 // Only show update check for release builds (binary/docker deployment)
-const isReleaseBuild = computed(() => buildType.value === 'release')
+const isReleaseBuild = computed(() => buildType.value === 'release' && !isCustomFork.value)
 
 function toggleDropdown() {
   dropdownOpen.value = !dropdownOpen.value

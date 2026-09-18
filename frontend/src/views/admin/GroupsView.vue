@@ -1896,8 +1896,11 @@
           </p>
         </div>
 
-        <!-- 模型路由配置（仅 anthropic 平台） -->
-        <div v-if="createForm.platform === 'anthropic'" class="border-t pt-4">
+        <!-- 模型路由配置（支持 anthropic, openai, composite 平台） -->
+        <div
+          v-if="['anthropic', 'openai', 'composite'].includes(createForm.platform)"
+          class="border-t pt-4"
+        >
           <div class="mb-1.5 flex items-center gap-1">
             <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
               {{ t("admin.groups.modelRouting.title") }}
@@ -3545,8 +3548,11 @@
           </p>
         </div>
 
-        <!-- 模型路由配置（仅 anthropic 平台） -->
-        <div v-if="editForm.platform === 'anthropic'" class="border-t pt-4">
+        <!-- 模型路由配置（支持 anthropic, openai, composite 平台） -->
+        <div
+          v-if="['anthropic', 'openai', 'composite'].includes(editForm.platform)"
+          class="border-t pt-4"
+        >
           <div class="mb-1.5 flex items-center gap-1">
             <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
               {{ t("admin.groups.modelRouting.title") }}
@@ -5072,13 +5078,17 @@ const clearAllAccountSearchState = () => {
 
 const accountSearchRunner = useKeyedDebouncedSearch<SimpleAccount[]>({
   delay: 300,
-  search: async (keyword, { signal }) => {
+  search: async (keyword, { signal, key }) => {
+    const isEdit = key.startsWith("edit-");
+    const currentPlatform = isEdit ? editForm.platform : createForm.platform;
+    const searchPlatform =
+      currentPlatform === "composite" ? undefined : currentPlatform;
     const res = await adminAPI.accounts.list(
       1,
       20,
       {
         search: keyword,
-        platform: "anthropic",
+        ...(searchPlatform ? { platform: searchPlatform } : {}),
       },
       { signal },
     );
@@ -5092,7 +5102,7 @@ const accountSearchRunner = useKeyedDebouncedSearch<SimpleAccount[]>({
   },
 });
 
-// 搜索账号（仅限 anthropic 平台）
+// 搜索账号
 const searchAccounts = (key: string) => {
   accountSearchRunner.trigger(key, accountSearchKeyword.value[key] || "");
 };

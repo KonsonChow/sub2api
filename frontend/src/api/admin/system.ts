@@ -18,7 +18,10 @@ export interface VersionInfo {
   release_info?: ReleaseInfo
   cached: boolean
   warning?: string
-  build_type: string // "source" for manual builds, "release" for CI builds
+  build_type: string // "source" for manual builds, "release" for CI builds, "custom" for custom fork
+  is_custom_fork?: boolean
+  upstream_repo?: string
+  upstream_version?: string
 }
 
 /**

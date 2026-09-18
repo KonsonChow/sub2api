@@ -1,0 +1,47 @@
+name: Upstream Sync Check
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Daily at 00:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync-upstream:
+    name: Sync Upstream Main Branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: upstream-main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Configure upstream remote and fetch
+        run: |
+          git remote add upstream https://github.com/Wei-Shaw/sub2api.git || git remote set-url upstream https://github.com/Wei-Shaw/sub2api.git
+          git fetch upstream --tags --prune
+
+      - name: Fast-forward upstream-main
+        run: |
+          git checkout upstream-main
+          UPSTREAM_HEAD=$(git rev-parse upstream/main)
+          LOCAL_HEAD=$(git rev-parse HEAD)
+          echo "Upstream main: $UPSTREAM_HEAD"
+          echo "Local upstream-main: $LOCAL_HEAD"
+          if [ "$UPSTREAM_HEAD" != "$LOCAL_HEAD" ]; then
+            echo "New commits detected in upstream/main. Fast-forwarding upstream-main..."
+            git merge --ff-only upstream/main
+            git push origin upstream-main --tags
+            echo "upstream-main has been synchronized with Wei-Shaw/sub2api."
+          else
+            echo "upstream-main is already up to date."
+          fi

@@ -34,7 +34,7 @@ var (
 	Version   = ""
 	Commit    = "unknown"
 	Date      = "unknown"
-	BuildType = "source" // "source" for manual builds, "release" for CI builds (set by ldflags)
+	BuildType = "custom" // "source" for manual builds, "release" for CI builds, "custom" for custom fork (can be overridden by ldflags)
 )
 
 func init() {

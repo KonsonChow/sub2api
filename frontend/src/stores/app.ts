@@ -42,6 +42,9 @@ export const useAppStore = defineStore('app', () => {
   const latestVersion = ref<string>('')
   const hasUpdate = ref<boolean>(false)
   const buildType = ref<string>('source')
+  const isCustomFork = ref<boolean>(false)
+  const upstreamRepo = ref<string>('Wei-Shaw/sub2api')
+  const upstreamVersion = ref<string>('')
   const releaseInfo = ref<ReleaseInfo | null>(null)
 
   // Auto-incrementing ID for toasts
@@ -248,6 +251,9 @@ export const useAppStore = defineStore('app', () => {
         latest_version: latestVersion.value,
         has_update: hasUpdate.value,
         build_type: buildType.value,
+        is_custom_fork: isCustomFork.value,
+        upstream_repo: upstreamRepo.value,
+        upstream_version: upstreamVersion.value,
         release_info: releaseInfo.value || undefined,
         cached: true
       }
@@ -265,6 +271,9 @@ export const useAppStore = defineStore('app', () => {
       latestVersion.value = data.latest_version
       hasUpdate.value = data.has_update
       buildType.value = data.build_type || 'source'
+      isCustomFork.value = data.is_custom_fork ?? (data.build_type === 'custom')
+      upstreamRepo.value = data.upstream_repo || 'Wei-Shaw/sub2api'
+      upstreamVersion.value = data.upstream_version || data.latest_version
       releaseInfo.value = data.release_info || null
       versionLoaded.value = true
       return data
@@ -461,6 +470,9 @@ export const useAppStore = defineStore('app', () => {
     latestVersion,
     hasUpdate,
     buildType,
+    isCustomFork,
+    upstreamRepo,
+    upstreamVersion,
     releaseInfo,
 
     // Computed

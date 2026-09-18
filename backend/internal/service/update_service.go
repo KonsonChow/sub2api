@@ -25,6 +25,7 @@ import (
 var (
 	ErrNoUpdateAvailable         = infraerrors.Conflict("ALREADY_UP_TO_DATE", "no update available; current version is latest")
 	ErrRollbackVersionNotAllowed = infraerrors.BadRequest("ROLLBACK_VERSION_NOT_ALLOWED", "version is not in the allowed rollback list")
+	ErrCustomForkUpdateDisabled  = infraerrors.BadRequest("CUSTOM_FORK_UPDATE_DISABLED", "in-place update is disabled for custom fork builds; please pull upstream and rebuild docker image")
 )
 
 const (
@@ -64,7 +65,7 @@ type UpdateService struct {
 	cache          UpdateCache
 	githubClient   GitHubReleaseClient
 	currentVersion string
-	buildType      string // "source" for manual builds, "release" for CI builds
+	buildType      string // "source" for manual builds, "release" for CI builds, "custom" for custom fork
 }
 
 // NewUpdateService creates a new UpdateService
@@ -79,13 +80,16 @@ func NewUpdateService(cache UpdateCache, githubClient GitHubReleaseClient, versi
 
 // UpdateInfo contains update information
 type UpdateInfo struct {
-	CurrentVersion string       `json:"current_version"`
-	LatestVersion  string       `json:"latest_version"`
-	HasUpdate      bool         `json:"has_update"`
-	ReleaseInfo    *ReleaseInfo `json:"release_info,omitempty"`
-	Cached         bool         `json:"cached"`
-	Warning        string       `json:"warning,omitempty"`
-	BuildType      string       `json:"build_type"` // "source" or "release"
+	CurrentVersion  string       `json:"current_version"`
+	LatestVersion   string       `json:"latest_version"`
+	HasUpdate       bool         `json:"has_update"`
+	ReleaseInfo     *ReleaseInfo `json:"release_info,omitempty"`
+	Cached          bool         `json:"cached"`
+	Warning         string       `json:"warning,omitempty"`
+	BuildType       string       `json:"build_type"` // "source", "release", "custom"
+	IsCustomFork    bool         `json:"is_custom_fork"`
+	UpstreamRepo    string       `json:"upstream_repo"`
+	UpstreamVersion string       `json:"upstream_version"`
 }
 
 // ReleaseInfo contains GitHub release details
@@ -147,11 +151,14 @@ func (s *UpdateService) CheckUpdate(ctx context.Context, force bool) (*UpdateInf
 			return cached, nil
 		}
 		return &UpdateInfo{
-			CurrentVersion: s.currentVersion,
-			LatestVersion:  s.currentVersion,
-			HasUpdate:      false,
-			Warning:        err.Error(),
-			BuildType:      s.buildType,
+			CurrentVersion:  s.currentVersion,
+			LatestVersion:   s.currentVersion,
+			HasUpdate:       false,
+			Warning:         err.Error(),
+			BuildType:       s.buildType,
+			IsCustomFork:    s.isCustomFork(),
+			UpstreamRepo:    githubRepo,
+			UpstreamVersion: s.currentVersion,
 		}, nil
 	}
 
@@ -163,6 +170,10 @@ func (s *UpdateService) CheckUpdate(ctx context.Context, force bool) (*UpdateInf
 // PerformUpdate downloads and applies the update
 // Uses atomic file replacement pattern for safe in-place updates
 func (s *UpdateService) PerformUpdate(ctx context.Context) error {
+	if s.isCustomFork() {
+		return ErrCustomForkUpdateDisabled
+	}
+
 	info, err := s.CheckUpdate(ctx, true)
 	if err != nil {
 		return err
@@ -327,6 +338,10 @@ func (s *UpdateService) ListRollbackVersions(ctx context.Context) ([]RollbackVer
 // The target must be one of the versions returned by ListRollbackVersions;
 // anything else (including the current version) is rejected.
 func (s *UpdateService) RollbackToVersion(ctx context.Context, version string) error {
+	if s.isCustomFork() {
+		return ErrCustomForkUpdateDisabled
+	}
+
 	target := strings.TrimPrefix(strings.TrimSpace(version), "v")
 	if target == "" {
 		return ErrRollbackVersionNotAllowed
@@ -358,6 +373,53 @@ func (s *UpdateService) RollbackToVersion(ctx context.Context, version string) e
 	}
 
 	return s.applyReleaseAssets(ctx, assets)
+}
+
+func (s *UpdateService) isCustomFork() bool {
+	if s.buildType == "custom" {
+		return true
+	}
+	if os.Getenv("CUSTOM_FORK") == "true" || os.Getenv("SUB2API_CUSTOM_FORK") == "true" {
+		return true
+	}
+	v := strings.ToLower(s.currentVersion)
+	return strings.Contains(v, "custom") || strings.Contains(v, "fork")
+}
+
+func (s *UpdateService) fetchLatestRelease(ctx context.Context) (*UpdateInfo, error) {
+	release, err := s.githubClient.FetchLatestRelease(ctx, githubRepo)
+	if err != nil {
+		return nil, err
+	}
+
+	latestVersion := strings.TrimPrefix(release.TagName, "v")
+
+	assets := make([]Asset, len(release.Assets))
+	for i, a := range release.Assets {
+		assets[i] = Asset{
+			Name:        a.Name,
+			DownloadURL: a.BrowserDownloadURL,
+			Size:        a.Size,
+		}
+	}
+
+	return &UpdateInfo{
+		CurrentVersion:  s.currentVersion,
+		LatestVersion:   latestVersion,
+		HasUpdate:       compareVersions(s.currentVersion, latestVersion) < 0,
+		ReleaseInfo: &ReleaseInfo{
+			Name:        release.Name,
+			Body:        release.Body,
+			PublishedAt: release.PublishedAt,
+			HTMLURL:     release.HTMLURL,
+			Assets:      assets,
+		},
+		Cached:          false,
+		BuildType:       s.buildType,
+		IsCustomFork:    s.isCustomFork(),
+		UpstreamRepo:    githubRepo,
+		UpstreamVersion: latestVersion,
+	}, nil
 }
 
 // fetchRollbackCandidates fetches recent releases and keeps the newest
@@ -399,38 +461,6 @@ func (s *UpdateService) fetchRollbackCandidates(ctx context.Context) ([]*GitHubR
 	return candidates, nil
 }
 
-func (s *UpdateService) fetchLatestRelease(ctx context.Context) (*UpdateInfo, error) {
-	release, err := s.githubClient.FetchLatestRelease(ctx, githubRepo)
-	if err != nil {
-		return nil, err
-	}
-
-	latestVersion := strings.TrimPrefix(release.TagName, "v")
-
-	assets := make([]Asset, len(release.Assets))
-	for i, a := range release.Assets {
-		assets[i] = Asset{
-			Name:        a.Name,
-			DownloadURL: a.BrowserDownloadURL,
-			Size:        a.Size,
-		}
-	}
-
-	return &UpdateInfo{
-		CurrentVersion: s.currentVersion,
-		LatestVersion:  latestVersion,
-		HasUpdate:      compareVersions(s.currentVersion, latestVersion) < 0,
-		ReleaseInfo: &ReleaseInfo{
-			Name:        release.Name,
-			Body:        release.Body,
-			PublishedAt: release.PublishedAt,
-			HTMLURL:     release.HTMLURL,
-			Assets:      assets,
-		},
-		Cached:    false,
-		BuildType: s.buildType,
-	}, nil
-}
 
 func (s *UpdateService) downloadFile(ctx context.Context, downloadURL, dest string) error {
 	return s.githubClient.DownloadFile(ctx, downloadURL, dest, maxDownloadSize)

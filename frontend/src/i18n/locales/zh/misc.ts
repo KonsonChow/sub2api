@@ -55,7 +55,15 @@ export default {
     deployScript: '脚本部署',
     deployDocker: 'Docker',
     dockerEditCompose: '修改 docker-compose.yml 中的镜像版本',
-    dockerRecreate: '重新创建容器'
+    dockerRecreate: '重新创建容器',
+    customFork: '自维护版本',
+    upstreamVersion: '官方上游版本',
+    upstreamLatest: '官方上游最新',
+    customForkHint: '当前运行的是自维护分支版本。',
+    customForkUpdateHint: '检测到官方上游有新版本。作为自维护版本，请拉取上游合并后重新构建镜像部署，禁止直接覆盖二进制。',
+    syncUpstreamGuide: '同步上游方式：合并上游代码并推送到自维护仓库，GitHub Actions 将自动构建新镜像。',
+    syncCommand: '同步命令',
+    rollbackCustomForkHint: '自维护版本不支持在线二进制回退，请通过 Git 或拉取指定历史镜像部署'
   },
 
   // Recharge / Subscription Page

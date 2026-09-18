@@ -185,3 +185,30 @@ func TestUpdateServiceRollbackToVersionAcceptsVPrefix(t *testing.T) {
 	require.NotErrorIs(t, err, ErrRollbackVersionNotAllowed)
 	require.Contains(t, err.Error(), "no compatible release found")
 }
+
+func TestUpdateServiceCustomForkDisablesPerformUpdateAndRollback(t *testing.T) {
+	svc := NewUpdateService(
+		&updateServiceCacheStub{},
+		&updateServiceGitHubClientStub{
+			release: &GitHubRelease{
+				TagName: "v0.2.6",
+				Name:    "v0.2.6",
+			},
+		},
+		"0.2.5",
+		"custom",
+	)
+
+	err := svc.PerformUpdate(context.Background())
+	require.ErrorIs(t, err, ErrCustomForkUpdateDisabled)
+
+	err = svc.RollbackToVersion(context.Background(), "v0.2.4")
+	require.ErrorIs(t, err, ErrCustomForkUpdateDisabled)
+
+	info, err := svc.CheckUpdate(context.Background(), true)
+	require.NoError(t, err)
+	require.True(t, info.IsCustomFork)
+	require.Equal(t, "Wei-Shaw/sub2api", info.UpstreamRepo)
+	require.Equal(t, "0.2.6", info.UpstreamVersion)
+	require.True(t, info.HasUpdate)
+}
